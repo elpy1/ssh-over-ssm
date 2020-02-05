@@ -1,9 +1,8 @@
-# ssm-over-ssh
-Configure SSH and connect to instances using SSM. No keys need to be stored locally or on the server. Consider git-managing your configs for easy setup and updates.
+# ssh-over-ssm
+Configure SSH and use AWS SSM to connect to instances. Consider git-managing your configs for quick setup and upates to your config.
 
 ## Info and requirements
-
-Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't quickly copy over a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of the AWS documentation I found that it's possible to establish a SSH connection over SSM, solving the issue of not being able to copy data to and from the server. You also get all the benefits of native SSH e.g. proxy jumping, port forwarding, socks etc.
+Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't quickly copy over a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of AWS documentation I found that it's possible to establish a SSH connection over SSM, solving the issue of not being able to copy data to and from the server. You also get all the benefits of native SSH e.g. proxy jumping, port forwarding, socks etc.
 
 What's also cool is that you can connect to private instances inside your VPC without a public-facing bastion and you don't need to store any SSH keys on the server. As long as a user has the required IAM access, and can reach the SSM regional endpoint, they can connect over SSH using SSM. I don't see an issue as long you're properly locking down IAM permissions and enforcing MFA. Also not bad if you need to get out to the internet from inside a restrictive network! :p
 
@@ -15,16 +14,14 @@ What's also cool is that you can connect to private instances inside your VPC wi
 
 Existing instances with SSM agent already installed may require agent updates.
 
-### How it works
-You configure each of your instances in your SSH config and specify `ssm-over-ssh.sh` to be executed as a ProxyCommand with your `AWS_PROFILE` environment variable set.
-If your key is available via ssh-agent it will be used by the script, otherwise a temporary key will be created, used and destroyed on termination of the script. The public key is copied across to the instance using `aws ssm send-command` and then the SSH session is initiated through SSM using `aws ssm start-session` (with document `AWS-StartSSHSession`), allowing you to establish a connection. The public key copied to the server is removed after 15 seconds and provides enough time for SSH authentication.
+## How it works
+You configure each of your instances in your SSH config and specify `ssh-ssm.sh` to be executed as a ProxyCommand with your `AWS_PROFILE` environment variable set.
+If your key is available via ssh-agent it will be used by the script, otherwise a temporary key will be created, used and destroyed on termination of the script. The public key is copied across to the instance using `aws ssm send-command` and then the SSH session is initiated through SSM using `aws ssm start-session` (with document `AWS-StartSSHSession`) after which the SSH connection is made. The public key copied to the server is removed after 15 seconds and provides enough time for SSH authentication.
 
 ## Installation and Usage
-
 This tool is intended to be used in conjunction with `ssh`. It requires that you've configured your awscli config (`~/.aws/{config,credentials}`) properly and you spend a small amount of time planning and updating your ssh config.
 
 ### Listing and updating SSM instances
-
 First, we need to make sure the agent on each of our instances is up-to-date. You can use `aws ssm describe-instance-information` to list instances and `aws ssm send-command` to update them. Alternatively, I've included a small python script to quickly list or update your instances:
 
 Check your instances
@@ -53,24 +50,24 @@ success
 
 ### SSH config
 
-Now that all of our instances are running an up-to-date agent we need to update our SSH config for seamless SSH access.
+Now that all of our instances are running an up-to-date agent we need to update our SSH config.
 
 Example of basic `~/.ssh/config`:
 ```
 Host confluence-prod.personal
   Hostname i-0xxxxxxxxxxxxxe28
   User ec2-user
-  ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssm-over-ssh.sh %h %r"
+  ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssh-ssm.sh %h %r"
 
 Host jira-stg.personal
   Hostname i-0xxxxxxxxxxxxxe49
   User ec2-user
-  ProxyCommand bash -c "AWS_PROFILE=atlassian-nonprod ~/bin/ssm-over-ssh.sh %h %r"
+  ProxyCommand bash -c "AWS_PROFILE=atlassian-nonprod ~/bin/ssh-ssm.sh %h %r"
 
 Host jenkins-master.personal
   Hostname i-0xxxxxxxxxxxxx143
   User centos
-  ProxyCommand bash -c "AWS_PROFILE=jenkins-home ~/bin/ssm-over-ssh.sh %h %r"
+  ProxyCommand bash -c "AWS_PROFILE=jenkins-home ~/bin/ssh-ssm.sh %h %r"
 
 Match Host i-*
   IdentityFile ~/.ssh/ssm-ssh-tmp
@@ -109,13 +106,12 @@ Host bitbucket-prod.personal
 
 Match host i-*
   User ec2-user
-  ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssm-over-ssh.sh %h %r"
+  ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssh-ssm.sh %h %r"
 ```
 
 All SSM hosts are saved in a fragment ending in '_ssm'. Within the config fragment I include each instance, their corresponding hostname (instance ID) and a Match directive containing the relevant User and ProxyCommand. This is not necessary but I find it neater and better for management.
 
-### Testing/debugging SSH config
-
+### Testing/debugging SSH connections
 Show which config file and Host you match against and the final command executed by SSH:
 ```
 ssh -G confluence-prod.personal 
@@ -126,8 +122,14 @@ Debug connection issues:
 ssh -vvv user@host
 ```
 
-Once you've tested it and you're confident it's all correct give it a go! Remember to place `ssm-over-ssh.sh` in `~/bin/` (or wherever you prefer).
+For further informaton consider enabling debug for `aws` (edit ssh-ssm.sh):
+```
+aws ssm --debug command
+```
 
+Once you've tested it and you're confident it's all correct give it a go! Remember to place `ssh-ssm.sh` in `~/bin/` (or wherever you prefer).
+
+### Example usage
 SSH:
 ```
 [elpy1@testbox ~]$ aws-mfa
@@ -147,11 +149,11 @@ Connection to i-0fxxxxxxxxxxxxe28 closed.
 
 SCP:
 ```
-[elpy@testbox ~]$ scp ~/bin/ssm-over-ssh.sh bitbucket-prod.personal:~
-ssm-over-ssh.sh                                                                                       100%  366    49.4KB/s   00:00
+[elpy@testbox ~]$ scp ~/bin/ssh-ssm.sh bitbucket-prod.personal:~
+ssh-ssm.sh                                                                                       100%  366    49.4KB/s   00:00
 
 [elpy@testbox ~]$ ssh bitbucket-prod.personal ls -la ssm\*
--rwxrwxr-x 1 ec2-user ec2-user 366 Jan 26 07:27 ssm-over-ssh.sh
+-rwxrwxr-x 1 ec2-user ec2-user 366 Jan 26 07:27 ssh-ssm.sh
 ```
 
 SOCKS:
@@ -159,4 +161,6 @@ SOCKS:
 [elpy@testbox ~]$ ssh -f -nNT -D 8080 jira-prod.personal
 [elpy@testbox ~]$ curl -x socks://localhost:8080 ipinfo.io/ip
 54.xxx.xxx.49
+[elpy@testbox ~]$ whois 54.xxx.xxx.49 | grep -i techname
+OrgTechName:   Amazon EC2 Network Operations
 ```
