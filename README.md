@@ -62,23 +62,22 @@ Host confluence-prod.personal
   User ec2-user
   ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssm-over-ssh.sh %h %r"
 
-Host confluence-stg.personal
+Host jira-stg.personal
   Hostname i-0xxxxxxxxxxxxxe49
   User ec2-user
   ProxyCommand bash -c "AWS_PROFILE=atlassian-nonprod ~/bin/ssm-over-ssh.sh %h %r"
 
-Host bitbucket-prod.personal
-  Hostname i-0xxxxxxxxxxxxx835
-  User ec2-user
-  ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssm-over-ssh.sh %h %r"
+Host jenkins-master.personal
+  Hostname i-0xxxxxxxxxxxxx143
+  User centos
+  ProxyCommand bash -c "AWS_PROFILE=jenkins-home ~/bin/ssm-over-ssh.sh %h %r"
 
 Match Host i-*
   IdentityFile ~/.ssh/ssm-ssh-tmp
   PasswordAuthentication no
-  ChallengeResponseAuthentication no
   GSSAPIAuthentication no
 ```
-Above we've configured 3 separate instances for SSH access over SSM, specifying the username, instance ID and host to use for local commands i.e. `ssh {host}`. If you only have 1 or 2 instances to setup this might be OK to work with but when you've got a large number of different AWS profiles (think: work-internal, work-clients, personal) and instances you're bound to end up with a huge config file containing lots of repetition. I've taken a different approach by splitting up my configuration into config fragments and then using ssh config directive `Include`. It is currently set up similar to below.
+Above we've configured 3 separate instances for SSH access over SSM, specifying the username, instance ID and host to use for local commands i.e. `ssh {host}`. We also set our `AWS_PROFILE` as per awscli configuration. If you only have a few instances to configure this might be OK to work with, but when you've got a large number of instances and different AWS profiles (think: work-internal, work-clients, personal) you're bound to end up with a huge config file and lots of repetition. I've taken a slightly different approach by splitting up my config into fragments and using ssh config directive `Include`. It is currently set up similar to below.
 
 Example `~/.ssh/config`:
 ```
@@ -102,7 +101,7 @@ Example `~/.ssh/conf.d/personal/atlassian-prod_ssm`:
 Host confluence-prod.personal
   Hostname i-0xxxxxxxxxxxxxe28
 
-Host confluence-stg.personal
+Host jira-prod.personal
   Hostname i-0xxxxxxxxxxxxxe49
 
 Host bitbucket-prod.personal
