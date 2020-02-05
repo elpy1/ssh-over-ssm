@@ -164,3 +164,13 @@ SOCKS:
 [elpy@testbox ~]$ whois 54.xxx.xxx.49 | grep -i techname
 OrgTechName:   Amazon EC2 Network Operations
 ```
+
+DB tunnel:
+```
+[elpy@testbox ~]$ ssh -f -nNT -oExitOnForwardFailure=yes -L 5432:db1.host.internal:5432 jira-prod.personal
+[elpy@testbox ~]$ ss -lt4p sport = :5432
+State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port
+LISTEN     0      128       127.0.0.1:postgres                        *:*                     users:(("ssh",pid=26130,fd=6))
+[elpy@testbox ~]$ psql --host localhost --port 5432
+Password:
+```
