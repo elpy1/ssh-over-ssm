@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -o nounset -o pipefail
 
 if ! type session-manager-plugin &>/dev/null; then
@@ -10,7 +9,7 @@ EOF
 fi
 
 [[ "$#" -ne 2 ]] && printf "  Usage: ${0} <instance-id> <ssh user>\n" && exit 1
-[[ ! -v "AWS_PROFILE" ]] && printf "  Error! AWS_PROFILE not set\n" && exit 1
+[[ ! -v "AWS_PROFILE" ]] && printf "  AWS_PROFILE not set!\n" && exit 1
 [[ "$(ps -o comm= -p $PPID)" != "ssh" ]] && { cat && exit 1; } <<EOF
   This script must be invoked by ssh to work correctly.
   To run manually use:
@@ -42,6 +41,6 @@ aws ssm send-command \
     printf '${ssh_pubkey}'|tee -a \${x}/${ssh_authkeys} && sleep 15
     sed -i s,'${ssh_pubkey}',, \${x}/${ssh_authkeys}
     \"" \
-  --comment "temporary ssm ssh access"
+  --comment "temporary ssm ssh access" #--debug
 
-aws ssm start-session --document-name AWS-StartSSHSession --target "$1"
+aws ssm start-session --document-name AWS-StartSSHSession --target "$1" #--debug
