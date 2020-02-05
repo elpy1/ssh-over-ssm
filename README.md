@@ -3,9 +3,9 @@ Configure SSH and connect to instances using SSM. No keys need to be stored loca
 
 ## Info and requirements
 
-Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't quickly copy over a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of the AWS documentation I found that it's possible to establish a SSH connection over SSM, solving the issue of not being able to copy data to and from the server. 
+Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't quickly copy over a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of the AWS documentation I found that it's possible to establish a SSH connection over SSM, solving the issue of not being able to copy data to and from the server. You also get all the benefits of native SSH e.g. proxy jumping, port forwarding, socks etc.
 
-What's also cool is that you can connect to private instances inside your VPC without a public-facing bastion and you don't need to store any SSH keys on the server. As long as a user has the required IAM access, and can reach the SSM regional endpoint, they can connect over SSH using SSM. I don't see an issue as long you're properly locking down IAM permissions and enforcing MFA.
+What's also cool is that you can connect to private instances inside your VPC without a public-facing bastion and you don't need to store any SSH keys on the server. As long as a user has the required IAM access, and can reach the SSM regional endpoint, they can connect over SSH using SSM. I don't see an issue as long you're properly locking down IAM permissions and enforcing MFA. Also not bad if you need to get out to the internet from inside a restrictive network! :p
 
 ### Requirements
 - Instances must have access to ssm.{region}.amazonaws.com
@@ -152,4 +152,11 @@ ssm-over-ssh.sh                                                                 
 
 [elpy@testbox ~]$ ssh bitbucket-prod.personal ls -la ssm\*
 -rwxrwxr-x 1 ec2-user ec2-user 366 Jan 26 07:27 ssm-over-ssh.sh
+```
+
+SOCKS:
+```
+[elpy@testbox ~]$ ssh -f -nNT -D 8080 jira-prod.personal
+[elpy@testbox ~]$ curl -x socks://localhost:8080 ipinfo.io/ip
+54.xxx.xxx.49
 ```
