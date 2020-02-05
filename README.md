@@ -1,9 +1,11 @@
 # ssm-over-ssh
-Connect to instances using SSM over SSH. No keys need to be stored locally or on the server.
+Configure SSH and connect to instances using SSM. No keys need to be stored locally or on the server. Consider git-managing your configs for easy setup and updates.
 
 ## Info and requirements
 
-Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't quickly copy over a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of the AWS documentation I found that it's possible to establish a SSH connection over SSM, solving the issue of not being able to copy data to and from the server. What's also cool is that you can connect to private instances inside your VPC without a public-facing bastion and you don't need to store any SSH keys on the server. As long as a user has the required IAM access they can connect over SSH with this approach. I don't see an issue as long you're properly locking down IAM access and enforcing MFA.
+Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't quickly copy over a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of the AWS documentation I found that it's possible to establish a SSH connection over SSM, solving the issue of not being able to copy data to and from the server. 
+
+What's also cool is that you can connect to private instances inside your VPC without a public-facing bastion and you don't need to store any SSH keys on the server. As long as a user has the required IAM access, and can reach the SSM regional endpoint, they can connect over SSH using SSM. I don't see an issue as long you're properly locking down IAM permissions and enforcing MFA.
 
 ### Requirements
 - Instances must have access to ssm.{region}.amazonaws.com
@@ -11,16 +13,15 @@ Recently I was required to administer AWS instances via Session Manager. After d
 - SSM agent must be installed on EC2 instance
 - AWS cli requires you install `session-manager-plugin` locally
 
-Existing instances with SSM agent already installed may require you to update the agent.
+Existing instances with SSM agent already installed may require agent updates.
 
 ### How it works
 You configure each of your instances in your SSH config and specify `ssm-over-ssh.sh` to be executed as a ProxyCommand with your `AWS_PROFILE` environment variable set.
-If your key is available via ssh-agent it will be used by the script, otherwise a temporary key will be created, used and destroyed on termination of the script. The public key is copied across to the instance using `aws send-command` and removed after 15 seconds, allowing you enough time to authenticate via SSH.
-
+If your key is available via ssh-agent it will be used by the script, otherwise a temporary key will be created, used and destroyed on termination of the script. The public key is copied across to the instance using `aws ssm send-command` and then the SSH session is initiated through SSM using `aws ssm start-session` (with document `AWS-StartSSHSession`), allowing you to establish a connection. The public key copied to the server is removed after 15 seconds and provides enough time for SSH authentication.
 
 ## Installation and Usage
 
-This tool is intended to be used in conjunction with `ssh`. It requires that you've configured your awscli config (`~/.aws/{config,credentials}`) and you spend a small amount of time planning and updating your ssh config.
+This tool is intended to be used in conjunction with `ssh`. It requires that you've configured your awscli config (`~/.aws/{config,credentials}`) properly and you spend a small amount of time planning and updating your ssh config.
 
 ### Listing and updating SSM instances
 
@@ -60,29 +61,24 @@ Host confluence-prod.personal
   Hostname i-0xxxxxxxxxxxxxe28
   User ec2-user
   ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssm-over-ssh.sh %h %r"
-  IdentityFile ~/.ssh/ssm-ssh-tmp
-  PasswordAuthentication no
-  GSSAPIAuthentication no
 
 Host confluence-stg.personal
   Hostname i-0xxxxxxxxxxxxxe49
   User ec2-user
   ProxyCommand bash -c "AWS_PROFILE=atlassian-nonprod ~/bin/ssm-over-ssh.sh %h %r"
-  IdentityFile ~/.ssh/ssm-ssh-tmp
-  PasswordAuthentication no
-  GSSAPIAuthentication no
 
 Host bitbucket-prod.personal
   Hostname i-0xxxxxxxxxxxxx835
   User ec2-user
   ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssm-over-ssh.sh %h %r"
+
+Match Host i-*
   IdentityFile ~/.ssh/ssm-ssh-tmp
   PasswordAuthentication no
+  ChallengeResponseAuthentication no
   GSSAPIAuthentication no
 ```
-Above we've configured 3 separate instances for SSH access with a simple host to remember. If you only have 1 or 2 instances to setup this might be acceptable but when you've got a large number of different AWS profiles (think: work-internal, work-clients, personal) there's quite a bit of repetition so we can take a different approach.
-
-I prefer to use includes and I've set mine up similar to below.
+Above we've configured 3 separate instances for SSH access over SSM, specifying the username, instance ID and host to use for local commands i.e. `ssh {host}`. If you only have 1 or 2 instances to setup this might be OK to work with but when you've got a large number of different AWS profiles (think: work-internal, work-clients, personal) and instances you're bound to end up with a huge config file containing lots of repetition. I've taken a different approach by splitting up my configuration into config fragments and then using ssh config directive `Include`. It is currently set up similar to below.
 
 Example `~/.ssh/config`:
 ```
@@ -92,7 +88,7 @@ Host *
   Include conf.d/personal/*
   KeepAlive yes
   Protocol 2
-  ServerAliveInterval 20
+  ServerAliveInterval 30
   ConnectTimeout 10
 
 Match exec "find ~/.ssh/conf.d -type f -name '*_ssm' -exec grep '%h' {} +"
@@ -117,9 +113,7 @@ Match host i-*
   ProxyCommand bash -c "AWS_PROFILE=atlassian-prod ~/bin/ssm-over-ssh.sh %h %r"
 ```
 
-With the above approach I separate my ssh config into fragments. All SSM hosts are saved in a fragment ending in '_ssm'. Within the config fragment I include each instance, their corresponding hostname (instance ID) and a Match directive containing the relevant User and ProxyCommand.
-
-Once again, if you don't have many accounts/instances to work with you could simplify this by simply having `~/.ssh/config` and `~/.ssh/config_ssm` or similar.
+All SSM hosts are saved in a fragment ending in '_ssm'. Within the config fragment I include each instance, their corresponding hostname (instance ID) and a Match directive containing the relevant User and ProxyCommand. This is not necessary but I find it neater and better for management.
 
 ### Testing/debugging SSH config
 
