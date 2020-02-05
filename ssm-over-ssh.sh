@@ -9,17 +9,13 @@ cat <<EOF && exit 1
 EOF
 fi
 
-if [ "$#" -ne 2 ]; then
-  printf "  Usage: ${0} <instance-id> <ssh user>\n" && exit 1
-elif [ ! -v "AWS_PROFILE" ]; then
-  printf "  Error! AWS_PROFILE not set\n" && exit 1
-elif [ "$(ps -o comm= -p $PPID)" != 'ssh' ]; then
-  cat <<EOF && exit 1
+[[ "$#" -ne 2 ]] && printf "  Usage: ${0} <instance-id> <ssh user>\n" && exit 1
+[[ ! -v "AWS_PROFILE" ]] && printf "  Error! AWS_PROFILE not set\n" && exit 1
+[[ "$(ps -o comm= -p $PPID)" != "ssh" ]] && { cat && exit 1; } <<EOF
   This script must be invoked by ssh to work correctly.
   To run manually use:
   AWS_PROFILE=${AWS_PROFILE} ssh -o IdentityFile="~/.ssh/ssm-ssh-tmp" -o ProxyCommand="${0} ${1} ${2}" ${2}@${1}
 EOF
-fi
 
 function cleanup {
   rm -f "${ssh_local}"/ssm-ssh-tmp{,.pub}
