@@ -2,7 +2,7 @@
 Configure SSH and use AWS SSM to connect to instances. Consider git-managing your configs for quick setup and keeping users up-to-date and in sync.
 
 ## Info and requirements
-Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't easily copy a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of AWS documentation I found it's possible to connect via SSH over SSM, solving the issue of not being able to copy data to and from the server. You also get all the other included benefits and functionality e.g. proxy jumping, port forwarding, socks etc.
+Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't easily copy a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of AWS documentation I found it's possible to connect via SSH over SSM, solving this issue. You also get all the other included benefits and functionality e.g. proxy jumping, port forwarding, socks etc.
 
 What's also cool is that you can connect to private instances inside your VPC without a public-facing bastion and you don't need to store any SSH keys on the server. As long as a user has the required IAM access, and can reach the SSM regional endpoint, they can connect over SSH using SSM. I don't see an issue as long you're properly locking down IAM permissions and enforcing MFA. Also not bad if you need to get out to the internet from inside a restrictive network! :p
 
@@ -19,7 +19,7 @@ You configure each of your instances in your SSH config and specify `ssh-ssm.sh`
 If your key is available via ssh-agent it will be used by the script, otherwise a temporary key will be created, used and destroyed on termination of the script. The public key is copied across to the instance using `aws ssm send-command` and then the SSH session is initiated through SSM using `aws ssm start-session` (with document `AWS-StartSSHSession`) after which the SSH connection is made. The public key copied to the server is removed after 15 seconds and provides enough time for SSH authentication.
 
 ## Installation and Usage
-This tool is intended to be used in conjunction with `ssh`. It requires that you've configured your awscli config (`~/.aws/{config,credentials}`) properly and you spend a small amount of time planning and updating your ssh config.
+This tool is intended to be used in conjunction with `ssh`. It requires that you've configured your awscli (`~/.aws/{config,credentials}`) properly and you spend a small amount of time planning and updating your ssh config.
 
 ### Listing and updating SSM instances
 First, we need to make sure the agent on each of our instances is up-to-date. You can use `aws ssm describe-instance-information` to list instances and `aws ssm send-command` to update them. Alternatively, I've included a small python script to quickly list or update your instances:
