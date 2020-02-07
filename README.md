@@ -4,14 +4,13 @@ Configure SSH and use AWS SSM to connect to instances. Consider git-managing you
 ## Info and requirements
 Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't easily copy a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of AWS documentation I found it's possible to connect via SSH over SSM, solving this issue. You also get all the other benefits and functionality of SSH e.g. encryption, proxy jumping, port forwarding, socks etc.
 
-At first I really wasn't too keen on SSM but now I'm an advocate!
+At first I really wasn't too keen on SSM but now I'm an advocate! Some cool features:
 
-Some other cool features:
-- you can connect to your private instances inside your VPC without jumping through a public-facing bastion or instance
-- you don't need to store any SSH keys locally or on the server.
-- users only require necessary IAM permissions and ability to reach their regional SSM endpoint (via HTTPS).
+- You can connect to your private instances inside your VPC without jumping through a public-facing bastion or instance
+- You don't need to store any SSH keys locally or on the server.
+- Users only require necessary IAM permissions and ability to reach their regional SSM endpoint (via HTTPS).
 - SSM 'Documents' available to restrict users to specific tasks e.g. `AWS-PasswordReset` and` AWS-StartPortForwardingSession`.
-- due to the way SSM works it's unlikely to find yourself blocked by network-level security, making it a great choice if you need to get out to the internet from inside a restrictive network :p
+- Due to the way SSM works it's unlikely to find yourself blocked by network-level security, making it a great choice if you need to get out to the internet from inside a restrictive network :p
 
 ### Requirements
 - Instances must have access to ssm.{region}.amazonaws.com
