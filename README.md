@@ -46,6 +46,20 @@ Update all instances
 ```
 [elpy@testbox ~]$ AWS_PROFILE=int-monitor1 python3 ssm_instances.py update
 success
+
+[elpy@testbox ~]$ AWS_PROFILE=int-monitor1 python3 ssm_instances.py
+instance id           |ip                    |agent up-to-date      |platform              |name
+------------------------------------------------------------------------------------------------------------------
+i-0xxxxxxxxxxxxx3b4   |10.xx.xx.6            |True                 |Ubuntu                |instance1
+i-0xxxxxxxxxxxxx76e   |10.xx.xx.142          |True                 |Ubuntu                |instance2
+i-0xxxxxxxxxxxxx1b6   |10.xx.xx.75           |True                 |Ubuntu                |instance3
+i-0xxxxxxxxxxxxxac8   |10.xx.xx.240          |True                 |Ubuntu                |instance4
+i-0xxxxxxxxxxxxxb1a   |10.xx.xx.206          |True                 |Ubuntu                |instance5
+i-0xxxxxxxxxxxxx504   |10.xx.xx.84           |True                 |Amazon Linux          |
+i-0xxxxxxxxxxxxx73d   |10.xx.xx.48           |True                 |Ubuntu                |instance6
+i-0xxxxxxxxxxxxxd56   |10.xx.xx.201          |True                 |Ubuntu                |instance7
+i-0xxxxxxxxxxxxxfe9   |10.xx.xx.143          |True                 |CentOS Linux          |instance8
+i-0xxxxxxxxxxxxxb8e   |10.xx.xx.195          |True                 |Ubuntu                |instance9
 ```
 
 ### SSH config
@@ -152,7 +166,7 @@ SCP:
 [elpy@testbox ~]$ scp ~/bin/ssh-ssm.sh bitbucket-prod.personal:~
 ssh-ssm.sh                                                                                       100%  366    49.4KB/s   00:00
 
-[elpy@testbox ~]$ ssh bitbucket-prod.personal ls -la ssm\*
+[elpy@testbox ~]$ ssh bitbucket-prod.personal ls -la ssh\*
 -rwxrwxr-x 1 ec2-user ec2-user 366 Jan 26 07:27 ssh-ssm.sh
 ```
 
