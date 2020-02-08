@@ -36,7 +36,7 @@ aws ssm send-command \
   --instance-ids "$1" \
   --document-name 'AWS-RunShellScript' \
   --parameters commands="\"
-    x=\$(getent passwd ${ssh_user}|cut -d: -f6) && cd \${x} || exit 1
+    u=\$(getent passwd ${ssh_user}) && x=\$(cut -d: -f6 <<<\$u) || exit 1
     grep '${ssh_pubkey}' \${x}/${ssh_authkeys} && exit 1
     printf '${ssh_pubkey}'|tee -a \${x}/${ssh_authkeys} && sleep 15
     sed -i s,'${ssh_pubkey}',, \${x}/${ssh_authkeys}
