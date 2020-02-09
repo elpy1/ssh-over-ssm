@@ -20,17 +20,17 @@ function cleanup {
   rm -f "${ssh_local}"/ssm-ssh-tmp{,.pub}
 }
 
-ssh_user="$2"
-ssh_authkeys='.ssh/authorized_keys'
-ssh_local=~/.ssh
-ssh_pubkey=$(ssh-add -L 2>/dev/null| head -1)
-
-if [ "$?" -eq 2 ]; then
+function tempkey {
   set -o errexit
   trap cleanup EXIT
   ssh-keygen -t ed25519 -N '' -f "${ssh_local}"/ssm-ssh-tmp -C ssm-ssh-session
   ssh_pubkey=$(< "${ssh_local}"/ssm-ssh-tmp.pub)
-fi
+}
+
+ssh_user="$2"
+ssh_authkeys='.ssh/authorized_keys'
+ssh_local=~/.ssh
+ssh_pubkey=$(ssh-add -L 2>/dev/null| head -1) || tempkey
 
 aws ssm send-command \
   --instance-ids "$1" \
