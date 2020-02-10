@@ -9,7 +9,7 @@ EOF
 fi
 
 [[ "$#" -ne 2 ]] && printf "  Usage: ${0} <instance-id> <ssh user>\n" && exit 1
-[[ ! -v "AWS_PROFILE" ]] && printf "  AWS_PROFILE not set!\n" && exit 1
+[[ -z "${AWS_PROFILE:-}" ]] && printf "  AWS_PROFILE not set!\n" && exit 1
 [[ "$(ps -o comm= -p $PPID)" != "ssh" ]] && { cat && exit 1; } <<EOF
   This script must be invoked by ssh to work correctly.
   To run manually use:
