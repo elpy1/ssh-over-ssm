@@ -17,6 +17,7 @@ def get_ec2_name(iid):
     except Exception as e:
         print(f"ERROR: {e}")
 
+
 def ssm_update_agent(iidlist):
     try:
         resp = ssm.send_command(
@@ -28,16 +29,20 @@ def ssm_update_agent(iidlist):
     except Exception as e:
         print(f"ERROR: {e}")
 
+
 def ssm_list_instances():
-    ssmi = ssm.describe_instance_information()['InstanceInformationList']
-    names = [get_ec2_name(x['InstanceId']) for x in ssmi]
-    instances = [x['InstanceId'] for x in ssmi]
-    ips = [x['IPAddress'] for x in ssmi]
-    updates = [x['IsLatestVersion'] for x in ssmi]
-    versions = [x['PlatformName'] for x in ssmi]
-    titles = ['instance id', 'ip', 'agent up-to-date', 'platform', 'name']
-    data = [titles] + list(zip(instances, ips, updates, versions, names))
-    return data
+    try:
+        ssmi = ssm.describe_instance_information()['InstanceInformationList']
+        names = [get_ec2_name(x.get('InstanceId')) for x in ssmi]
+        instances = [x.get('InstanceId') for x in ssmi]
+        ips = [x.get('IPAddress') for x in ssmi]
+        updates = [x.get('IsLatestVersion') for x in ssmi]
+        versions = [x.get('PlatformName') for x in ssmi]
+        titles = ['instance id', 'ip', 'agent up-to-date', 'platform', 'name']
+        data = [titles] + list(zip(instances, ips, updates, versions, names))
+        return data
+    except Exception as e:
+        print(f"ERROR:{e}")
 
 ec2 = boto3.resource('ec2')
 ssm = boto3.client('ssm')
