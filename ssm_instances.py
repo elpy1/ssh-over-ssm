@@ -32,7 +32,14 @@ def ssm_update_agent(iidlist):
 
 def ssm_list_instances():
     try:
-        ssmi = ssm.describe_instance_information()['InstanceInformationList']
+        instances = ssm.describe_instance_information(MaxResults=50)
+        tempssmi = dict(instances=instances['InstanceInformationList'])
+        ssmi = tempssmi['instances']
+        while True:
+            next_token = instances.get('NextToken')
+            if not next_token: break
+            instances = ssm.describe_instance_information(MaxResults=50, NextToken=next_token)
+            ssmi.append(instances['InstanceInformationList'])
         names = [get_ec2_name(x.get('InstanceId')) for x in ssmi]
         instances = [x.get('InstanceId') for x in ssmi]
         ips = [x.get('IPAddress') for x in ssmi]
@@ -43,6 +50,7 @@ def ssm_list_instances():
         return data
     except Exception as e:
         print(f"ERROR:{e}")
+
 
 ec2 = boto3.resource('ec2')
 ssm = boto3.client('ssm')
