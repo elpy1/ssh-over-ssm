@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import boto3
+import datetime
 import sys
+from dateutil.tz import tzlocal
 
 #############################################################
 ## Usage:
@@ -32,14 +34,13 @@ def ssm_update_agent(iidlist):
 
 def ssm_list_instances():
     try:
-        instances = ssm.describe_instance_information(MaxResults=50)
-        tempssmi = dict(instances=instances['InstanceInformationList'])
-        ssmi = tempssmi['instances']
+        ssminstances = ssm.describe_instance_information(MaxResults=50)
+        ssmi = ssminstances['InstanceInformationList']
         while True:
-            next_token = instances.get('NextToken')
+            next_token = ssminstances.get('NextToken')
             if not next_token: break
-            instances = ssm.describe_instance_information(MaxResults=50, NextToken=next_token)
-            ssmi.append(instances['InstanceInformationList'])
+            ssminstances = ssm.describe_instance_information(MaxResults=50, NextToken=next_token)
+            ssmi.extend(ssminstances['InstanceInformationList'])
         names = [get_ec2_name(x.get('InstanceId')) for x in ssmi]
         instances = [x.get('InstanceId') for x in ssmi]
         ips = [x.get('IPAddress') for x in ssmi]
@@ -52,13 +53,13 @@ def ssm_list_instances():
         print(f"ERROR:{e}")
 
 
-ec2 = boto3.resource('ec2')
-ssm = boto3.client('ssm')
-data = ssm_list_instances()
-
 if (sys.argv[1:] and not 'update' in sys.argv[1].lower()):
     print(f"  Usage: {sys.argv[0]} or {sys.argv[0]} update")
     sys.exit()
+
+ec2 = boto3.resource('ec2')
+ssm = boto3.client('ssm')
+data = ssm_list_instances()
 
 if sys.argv[1:]:
     iidlist = [x[0] for x in data[1:]]
