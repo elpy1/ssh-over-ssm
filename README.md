@@ -1,3 +1,4 @@
+
 # ssh-over-ssm
 Configure SSH and use AWS SSM to connect to instances. Consider git-managing your configs for quick setup and keeping users up-to-date and in sync.
 
@@ -32,7 +33,7 @@ First, we need to make sure the agent on each of our instances is up-to-date. Yo
 
 Check your instances
 ```
-[elpy@testbox ~]$ AWS_PROFILE=int-monitor1 python3 ssm_instances.py
+[elpy@testbox ~]$ AWS_PROFILE=int-monitor1 python3 ssm-tool.py
 instance id           |ip                    |agent up-to-date      |platform              |name
 ------------------------------------------------------------------------------------------------------------------
 i-0xxxxxxxxxxxxx3b4   |10.xx.xx.6            |False                 |Ubuntu                |instance1
@@ -50,10 +51,10 @@ i-0xxxxxxxxxxxxxb8e   |10.xx.xx.195          |False                 |Ubuntu     
 
 Update all instances
 ```
-[elpy@testbox ~]$ AWS_PROFILE=int-monitor1 python3 ssm_instances.py update
+[elpy@testbox ~]$ AWS_PROFILE=int-monitor1 python3 ssm-tool.py --update
 success
 
-[elpy@testbox ~]$ AWS_PROFILE=int-monitor1 python3 ssm_instances.py
+[elpy@testbox ~]$ AWS_PROFILE=int-monitor1 python3 ssm-tool.py
 instance id           |ip                    |agent up-to-date      |platform              |name
 ------------------------------------------------------------------------------------------------------------------
 i-0xxxxxxxxxxxxx3b4   |10.xx.xx.6            |True                 |Ubuntu                |instance1
@@ -132,6 +133,7 @@ Match host i-*
 All SSM hosts are saved in a fragment ending in '\_ssm'. Within the config fragment I include each instance, their corresponding hostname (instance ID) and a `Match` directive containing the relevant `User` and `ProxyCommand`. This approach is not required but I personally find it neater and better for management.
 
 ### Testing/debugging SSH connections
+
 Show which config file and `Host` you match against and the final command executed by SSH:
 ```
 ssh -G confluence-prod.personal 
@@ -194,3 +196,98 @@ LISTEN     0      128       127.0.0.1:postgres                        *:*       
 [elpy@testbox ~]$ psql --host localhost --port 5432
 Password:
 ```
+
+### But I don't like configuring things!
+So, it appears there are ~~monsters~~ people out there who don't like the idea of managing config files, and that's fine. The reason for making this section is to provide some examples of how you can configure and work with `ssh` to hopefully achieve the minimal configuration dream. I have made some amendments to the python script included with `ssh-ssm.sh` and renamed it to `ssm-tool.py` to cater for this. It is required that both scripts are placed in `~/bin/`.
+
+**Note**: The changes made to `ssh-ssm.sh` should not affect existing script functionality.
+
+Goals:
+- Can ssh into our instance using `Name` tag `Value`
+- Can ssh into our instance using `InstanceId`
+- We want minimal or zero pre-configuration required
+
+To achieve this we can either execute `ssh-ssm.sh` directly using either the instance `Name` value or `InstanceId`:
+```
+[elpy@testbox ~]$ AWS_PROFILE=home python3 ~/bin/ssm-tool.py --linux --tag Name:jenkins*
+instance id           |ip                    |agent up-to-date      |platform              |names
+------------------------------------------------------------------------------------------------------------------
+i-0xxxxxxxxxxxxx67a   |10.xx.x.x53           |True                  |CentOS Linux          |jenkins-dev-slave-autoscale01
+i-0xxxxxxxxxxxxxfe9   |10.xx.x.x43           |True                  |CentOS Linux          |jenkins-dev-master-autoscale01
+
+[elpy@testbox ~]$ AWS_PROFILE=home ~/bin/ssh-ssm.sh jenkins-dev-master-autoscale01 centos
+Last login: Sun Feb 23 12:39:40 2020 from localhost
+[centos@ip-10-xx-x-x43 ~]$ logout
+Connection to jenkins-dev-master-autoscale01 closed.
+```
+or
+```
+[elpy@testbox ~]$ ~/bin/ssm-tool.py --profile home --tag Name:*slave* --linux
+instance id           |ip                    |agent up-to-date      |platform              |names
+------------------------------------------------------------------------------------------------------------------
+i-0xxxxxxxxxxxxx67a   |10.xx.x.x53           |True                  |CentOS Linux          |jenkins-dev-slave-autoscale01
+
+[elpy@testbox ~]$ AWS_PROFILE=home ~/bin/ssh-ssm.sh i-0xxxxxxxxxxxxx67a centos
+Last login: Sat Feb 22 05:57:15 2020 from localhost
+[centos@ip-10-xx-x-x53 ~]$ logout
+Connection to i-0xxxxxxxxxxxxx67a closed.
+```
+No pre-configuration is required.
+
+Alternatively, we can add each instance to our `~/.ssh/config` so that we can use `ssh` directly. It is not required for you to pre-configure your AWS profile if you're happy to specify it or switch to it each time you use `ssh`.
+
+Example `~/.ssh/config`:
+```
+Host jenkins-dev* instance1 instance3 instance6
+  ProxyCommand ~/bin/ssh-ssm.sh %h %r
+
+...
+
+Match host i-*
+  StrictHostKeyChecking no
+  IdentityFile ~/.ssh/ssm-ssh-tmp
+  PasswordAuthentication no
+  GSSAPIAuthentication no
+  ProxyCommand ~/bin/ssh-ssm.sh %h %r
+```
+
+This would enable you to ssh to instances with names: `instance1`, `instance3`, `instance6` and any instance beginning with name `jenkins-dev`. Keep in mind you need to specify the AWS profile and the `User` as we have not pre-configured it. Example below.
+
+SSH:
+```
+[elpy@testbox ~]$ AWS_PROFILE=home ssh centos@jenkins-dev-slave-autoscale01
+Last login: Mon Feb 24 03:45:15 2020 from localhost
+[centos@ip-10-xx-x-x53 ~]$ logout
+Connection to i-0xxxxxxxxxxxxx67a closed.
+```
+
+A different approach you could take (with even less pre-configuration required) is to prepend ALL `ssh` commands to SSM instances with `ssm.`, see below.
+
+Example `~/.ssh/config`:
+```
+Match host ssm.*
+  IdentityFile ~/.ssh/ssm-ssh-tmp
+  StrictHostKeyChecking no
+  PasswordAuthentication no
+  GSSAPIAuthentication no
+  ProxyCommand ~/bin/ssh-ssm.sh %h %r
+```
+Once again, this requires you enter the username and specify AWS profile when using `ssh` as we have not pre-configured it. If you use the same distro and user on all instances you could add and specify `User` in the `Match` block above. Example below.
+
+SSH:
+```
+[elpy1@testbox ~]$ AWS_PROFILE=atlassian-prod ssh ec2-user@ssm.confluence-autoscale-02
+Last login: Sat Feb 15 06:57:02 2020 from localhost
+
+       __|  __|_  )
+       _|  (     /   Amazon Linux 2 AMI
+      ___|\___|___|
+
+https://aws.amazon.com/amazon-linux-2/
+[ec2-user@ip-10-xx-x-x06 ~]$ logout
+Connection to ssm.confluence-autoscale-02 closed.
+
+```
+
+Maybe others have come up with other cool ways to utilise SSH and AWS SSM. Feel free to reach out and/or contribute with ideas!
+
