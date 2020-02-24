@@ -94,7 +94,7 @@ platform = {'Key': 'PlatformTypes', 'Values': (args.platforms or ['Linux', 'Wind
 
 # ec2 tag filter
 tags = args.tag.split(':')
-if args.iidonly and tags[1].startswith('ssm.'): tags[1].strip('ssm.')
+if args.iidonly and tags[1].startswith('ssm.'): tags[1] = tags[1].strip('ssm.')
 tag = {'Name': f"tag:{tags[0]}", 'Values': [tags[1]]}
 
 # list ssm instances
