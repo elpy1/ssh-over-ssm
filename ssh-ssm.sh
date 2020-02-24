@@ -8,13 +8,16 @@ cat <<EOF && exit 1
 EOF
 fi
 
-[[ "$#" -ne 2 ]] && printf "  Usage: ${0} <instance-id> <ssh user>\n" && exit 1
+[[ "$#" -ne 2 ]] && printf "  Usage: ${0} <instance-id|instance-name> <ssh user>\n" && exit 1
 [[ -z "${AWS_PROFILE:-}" ]] && printf "  AWS_PROFILE not set!\n" && exit 1
-[[ "$(ps -o comm= -p $PPID)" != "ssh" ]] && { cat && exit 1; } <<EOF
-  This script must be invoked by ssh to work correctly.
-  To run manually use:
-  AWS_PROFILE=${AWS_PROFILE} ssh -o IdentityFile="~/.ssh/ssm-ssh-tmp" -o ProxyCommand="${0} ${1} ${2}" ${2}@${1}
-EOF
+
+if [[ "$(ps -o comm= -p $PPID)" != "ssh" ]]; then
+  ssh -o IdentityFile="~/.ssh/ssm-ssh-tmp" -o ProxyCommand="${0} ${1} ${2}" ${2}@${1}
+  exit 0
+fi
+
+[[ "$1" =~ ^i-([0-9a-f]{8,})$ ]] && iid="$1" ||iid=$(python3 ~/bin/ssm-tool.py --iid --tag Name:"${1}")
+[[ $? -ne 0 ]] && printf "  ERROR: could not determine instance-id with provided argument!\n" && exit 1
 
 function cleanup {
   rm -f "${ssh_local}"/ssm-ssh-tmp{,.pub}
@@ -33,7 +36,7 @@ ssh_local=~/.ssh
 ssh_pubkey=$(ssh-add -L 2>/dev/null| head -1) || tempkey
 
 aws ssm send-command \
-  --instance-ids "$1" \
+  --instance-ids "$iid" \
   --document-name 'AWS-RunShellScript' \
   --parameters commands="\"
     u=\$(getent passwd ${ssh_user}) && x=\$(echo \$u |cut -d: -f6) || exit 1
@@ -43,4 +46,4 @@ aws ssm send-command \
     \"" \
   --comment "temporary ssm ssh access" #--debug
 
-aws ssm start-session --document-name AWS-StartSSHSession --target "$1" #--debug
+aws ssm start-session --document-name AWS-StartSSHSession --target "$iid" #--debug
