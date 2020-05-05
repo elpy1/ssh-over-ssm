@@ -8,16 +8,18 @@ cat <<EOF && exit 1
 EOF
 fi
 
-[[ "$#" -ne 2 ]] && printf "  Usage: ${0} <instance-id|instance-name> <ssh user>\n" && exit 1
-[[ -z "${AWS_PROFILE:-}" ]] && printf "  AWS_PROFILE not set!\n" && exit 1
+[[ "$#" -ne 2 ]] && printf "  Usage: ${0} <instance-id> <ssh user>\n" && exit 1
+if ! grep -q ^AWS_[PS] <(env); then
+  printf "  AWS credentials not found in environment!\n" && exit 1
+fi
 
 if [[ "$(ps -o comm= -p $PPID)" != "ssh" ]]; then
   ssh -o IdentityFile="~/.ssh/ssm-ssh-tmp" -o ProxyCommand="${0} ${1} ${2}" ${2}@${1}
   exit 0
 fi
 
-[[ "$1" =~ ^i-([0-9a-f]{8,})$ ]] && iid="$1" ||iid=$(python3 ~/bin/ssm-tool.py --iid --tag Name:"${1}")
-[[ $? -ne 0 ]] && printf "  ERROR: could not determine instance-id with provided argument!\n" && exit 1
+[[ "$1" =~ ^i-([0-9a-f]{8,})$ ]] && iid="$1"
+[[ $? -ne 0 ]] && printf "  ERROR: invalid instance-id!\n" && exit 1
 
 function cleanup {
   rm -f "${ssh_local}"/ssm-ssh-tmp{,.pub}
@@ -40,7 +42,7 @@ aws ssm send-command \
   --document-name 'AWS-RunShellScript' \
   --parameters commands="\"
     u=\$(getent passwd ${ssh_user}) && x=\$(echo \$u |cut -d: -f6) || exit 1
-    grep '${ssh_pubkey}' \${x}/${ssh_authkeys} && exit 1
+    install -d -m700 -o${ssh_user} \${x}/.ssh; grep '${ssh_pubkey}' \${x}/${ssh_authkeys} && exit 1
     printf '${ssh_pubkey}'|tee -a \${x}/${ssh_authkeys} && sleep 15
     sed -i s,'${ssh_pubkey}',, \${x}/${ssh_authkeys}
     \"" \
