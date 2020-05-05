@@ -13,13 +13,15 @@ if ! grep -q ^AWS_[PS] <(env); then
   printf "  AWS credentials not found in environment!\n" && exit 1
 fi
 
+if ! [[ "$1" =~ ^i-([0-9a-f]{8,})$ ]]; then
+  printf "  ERROR: invalid instance-id!\n"
+  exit 1
+fi
+
 if [[ "$(ps -o comm= -p $PPID)" != "ssh" ]]; then
   ssh -o IdentityFile="~/.ssh/ssm-ssh-tmp" -o ProxyCommand="${0} ${1} ${2}" ${2}@${1}
   exit 0
 fi
-
-[[ "$1" =~ ^i-([0-9a-f]{8,})$ ]] && iid="$1"
-[[ $? -ne 0 ]] && printf "  ERROR: invalid instance-id!\n" && exit 1
 
 function cleanup {
   rm -f "${ssh_local}"/ssm-ssh-tmp{,.pub}
@@ -38,14 +40,15 @@ ssh_local=~/.ssh
 ssh_pubkey=$(ssh-add -L 2>/dev/null| head -1) || tempkey
 
 aws ssm send-command \
-  --instance-ids "$iid" \
+  --instance-ids "${1}" \
   --document-name 'AWS-RunShellScript' \
   --parameters commands="\"
     u=\$(getent passwd ${ssh_user}) && x=\$(echo \$u |cut -d: -f6) || exit 1
-    install -d -m700 -o${ssh_user} \${x}/.ssh; grep '${ssh_pubkey}' \${x}/${ssh_authkeys} && exit 1
+    install -d -m700 -o${ssh_user} \${x}/.ssh
+    grep '${ssh_pubkey}' \${x}/${ssh_authkeys} && exit 1
     printf '${ssh_pubkey}'|tee -a \${x}/${ssh_authkeys} && sleep 15
     sed -i s,'${ssh_pubkey}',, \${x}/${ssh_authkeys}
     \"" \
   --comment "temporary ssm ssh access" #--debug
 
-aws ssm start-session --document-name AWS-StartSSHSession --target "$iid" #--debug
+aws ssm start-session --document-name AWS-StartSSHSession --target "${1}" #--debug
