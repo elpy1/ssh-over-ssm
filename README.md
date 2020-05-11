@@ -1,7 +1,8 @@
 
 # ssh-over-ssm
-Configure SSH and use AWS SSM to connect to instances. Consider git-managing your configs for quick setup and keeping users up-to-date and in sync.
-**NOTE:** [ssm-tool](https://github.com/elpy1/ssm-tool) has been removed to its' own repo.
+Configure SSH and use AWS SSM to connect to instances. Consider git-managing your configs for quick setup and keeping users up-to-date and in sync.   
+    
+**NOTE:** [ssm-tool](https://github.com/elpy1/ssm-tool) has been moved to its' own repo.
 
 ## Info and requirements
 Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't easily copy a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of AWS documentation I found it's possible to connect via SSH over SSM, solving this issue. You also get all the other benefits and functionality of SSH e.g. encryption, proxy jumping, port forwarding, socks etc.
