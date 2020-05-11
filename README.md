@@ -21,6 +21,8 @@ At first I really wasn't too keen on SSM but now I'm an advocate! Some cool feat
 
 Existing instances with SSM agent already installed may require agent updates.
 
+**NOTE:** [ssm-tool](https://github.com/elpy1/ssm-tool) has been removed to its' own repo.
+
 ## How it works
 You configure each of your instances in your SSH config and specify `ssh-ssm.sh` to be executed as a `ProxyCommand` with your `AWS_PROFILE` environment variable set.
 If your key is available via ssh-agent it will be used by the script, otherwise a temporary key will be created, used and destroyed on termination of the script. The public key is copied across to the instance using `aws ssm send-command` and then the SSH session is initiated through SSM using `aws ssm start-session` (with document `AWS-StartSSHSession`) after which the SSH connection is made. The public key copied to the server is removed after 15 seconds and provides enough time for SSH authentication.
