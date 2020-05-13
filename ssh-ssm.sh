@@ -29,7 +29,7 @@ EOF
 function checks {
   [[ $# -ne 2 ]] && die "Usage: ${0##*/} <instance-id> <ssh user>"
   [[ ! $1 =~ ^i-([0-9a-f]{8,})$ ]] && die "ERROR: invalid instance-id"
-  if [[ $(ps -o comm= -p $PPID) != "ssh" ]]; then
+  if [[ $(basename `ps -o comm= -p $PPID`) != "ssh" ]]; then
     ssh -o IdentityFile="~/.ssh/ssm-ssh-tmp" -o ProxyCommand="${0} ${1} ${2}" "${2}@${1}"
     exit 0
   fi
