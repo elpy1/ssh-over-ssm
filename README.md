@@ -2,7 +2,7 @@
 # ssh-over-ssm
 Configure SSH and use AWS SSM to connect to instances. Consider git-managing your configs for quick setup and keeping users up-to-date and in sync.   
     
-**NOTE:** [ssm-tool](https://github.com/elpy1/ssm-tool) has been moved to its' own repo.
+**NOTE:** [ssm-tool](https://github.com/elpy1/ssm-tool) has been moved to its own repo.
 
 ## Info and requirements
 Recently I was required to administer AWS instances via Session Manager. After downloading the required plugin and initiating a SSM session locally using `aws ssm start-session` I found myself in a situation where I couldn't easily copy a file from my machine to the server (e.g. SCP, sftp, rsync etc). After some reading of AWS documentation I found it's possible to connect via SSH over SSM, solving this issue. You also get all the other benefits and functionality of SSH e.g. encryption, proxy jumping, port forwarding, socks etc.
@@ -25,7 +25,7 @@ Existing instances with SSM agent already installed may require agent updates.
 
 ## How it works
 You configure each of your instances in your SSH config and specify `ssh-ssm.sh` to be executed as a `ProxyCommand` with your `AWS_PROFILE` environment variable set.
-If your key is available via ssh-agent it will be used by the script, otherwise a temporary key will be created, used and destroyed on termination of the script. The public key is copied across to the instance using `aws ssm send-command` and then the SSH session is initiated through SSM using `aws ssm start-session` (with document `AWS-StartSSHSession`) after which the SSH connection is made. The public key copied to the server is removed after 15 seconds and provides enough time for SSH authentication.
+If your key is available via `ssh-agent` it will be used by the script, otherwise a temporary key will be created, used and destroyed on termination of the script. The public key is copied across to the instance using `aws ssm send-command` and then the SSH session is initiated through SSM using `aws ssm start-session` (with document `AWS-StartSSHSession`) after which the SSH connection is made. The public key copied to the server is removed after 15 seconds and provides enough time for SSH authentication.
 
 ## Installation and Usage
 This tool is intended to be used in conjunction with `ssh`. It requires that you've configured your awscli (`~/.aws/{config,credentials}`) properly and you spend a small amount of time planning and updating your ssh config.
@@ -73,9 +73,30 @@ i-0xxxxxxxxxxxxxb8e   |10.xx.xx.195          |True                 |Ubuntu      
 
 ### SSH config
 
-Now that all of our instances are running an up-to-date agent we need to update our SSH config.
+Now that all of our instances are running an up-to-date agent we need to update our SSH config (`~/.ssh/config`).
 
-Example of basic `~/.ssh/config`:
+#### The minimum required
+```
+# applies to all hosts and ensures our SSH sessions remain alive when idle
+Host *
+TCPKeepAlive yes
+ServerAliveInterval 30
+ConnectTimeout 10
+
+#------
+# place any other/existing configuration here
+#------
+
+Match Host  i-*
+ProxyCommand ssh-ssm.sh %h %r
+IdentityFile ~/.ssh/ssm-ssh-tmp
+StrictHostKeyChecking no
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+```
+This enables you to connect via `ssh` using the appropriate username and instance-id e.g. `ssh ec2-user@<instance-id>`. You'll need to ensure AWS credentials are available in your environment, either with `AWS_PROFILE` or `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`.
+
+#### Basic configuration example
 ```
 Host confluence-prod.personal
   Hostname i-0xxxxxxxxxxxxxe28
@@ -97,7 +118,8 @@ Match Host i-*
   PasswordAuthentication no
   GSSAPIAuthentication no
 ```
-Above we've configured 3 separate instances for SSH access over SSM, specifying the username, instance ID and host to use for local commands i.e. `ssh {host}`. We also set our `AWS_PROFILE` as per awscli configuration. If you only have a few instances to configure this might be OK to work with, but when you've got a large number of instances and different AWS profiles (think: work-internal, work-clients, personal) you're bound to end up with a huge config file and lots of repetition. I've taken a slightly different approach by splitting up my config into fragments and using ssh config directive `Include`. It is currently set up similar to below.
+Above we've configured 3 separate instances for SSH access over SSM, specifying the username, instance ID and host to use for local commands i.e. `ssh {host}`. We've added our `AWS_PROFILE` to the `ProxyCommand` so we don't need to manually provide credentials.
+If you only have a few instances to configure this should be OK to work with, but when you've got a large number of instances and different AWS profiles configured (think: work-internal, work-clients, personal) you're bound to end up with a huge config file and lots of repetition. I've taken a slightly different approach by splitting up my config into fragments and using ssh config directive `Include`. It is currently set up similar to below.
 
 Example `~/.ssh/config`:
 ```
@@ -133,6 +155,8 @@ Match host i-*
 ```
 
 All SSM hosts are saved in a fragment ending in '\_ssm'. Within the config fragment I include each instance, their corresponding hostname (instance ID) and a `Match` directive containing the relevant `User` and `ProxyCommand`. This approach is not required but I personally find it neater and better for management.
+
+
 
 ### Testing/debugging SSH connections
 
@@ -199,3 +223,19 @@ LISTEN     0      128       127.0.0.1:postgres                        *:*       
 Password:
 ```
 
+SSH (with minimum required configuration):
+```
+[elpy@testbox ~]$ jumpbox=$(aws --profile atlassian-prod ec2 describe-instances --filters 'Name=tag:Name,Values=confluence-prod' --output text --query 'Reservations[*].Instances[*].InstanceId')
+[elpy@testbox ~]$ echo ${jumpbox}
+i-0fxxxxxxxxxxxxe28
+[elpy@testbox ~]$ AWS_PROFILE=atlassian-prod ssh ec2-user@${jumpbox}
+Last login: Sat Jan 25 08:59:40 2020 from localhost
+
+       __|  __|_  )
+       _|  (     /   Amazon Linux 2 AMI
+      ___|\___|___|
+
+https://aws.amazon.com/amazon-linux-2/
+[ec2-user@ip-10-xx-x-x06 ~]$ logout
+Connection to i-0fxxxxxxxxxxxxe28 closed.
+```
