@@ -4,6 +4,8 @@ set -o nounset -o pipefail -o errexit
 function main {
   local ssh_pubkey ssm_cmd
   local ssh_authkeys='.ssh/authorized_keys'
+  local ssh_file_key_tmp
+  ssh_file_key_tmp="ssm-ssh-tmp-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 13 ; echo '')"
   ssh_dir=~/.ssh
 
   checks "$@" && ssh_pubkey=$(ssh-add -L 2>/dev/null| head -1) || mktmpkey
@@ -30,7 +32,7 @@ function checks {
   [[ $# -ne 2 ]] && die "Usage: ${0##*/} <instance-id> <ssh user>"
   [[ ! $1 =~ ^i-([0-9a-f]{8,})$ ]] && die "ERROR: invalid instance-id"
   if [[ $(basename -- $(ps -o comm= -p $PPID)) != "ssh" ]]; then
-    ssh -o IdentityFile="~/.ssh/ssm-ssh-tmp" -o ProxyCommand="${0} ${1} ${2}" "${2}@${1}"
+    ssh -o IdentityFile="~/.ssh/${ssh_file_key_tmp}" -o ProxyCommand="${0} ${1} ${2}" "${2}@${1}"
     exit 0
   fi
   pr="$(grep -sl --exclude='*tool-env' "$1" "${ssh_dir}"/ssmtool-*)" &&
@@ -39,11 +41,11 @@ function checks {
 
 function mktmpkey {
   trap cleanup EXIT
-  ssh-keygen -t ed25519 -N '' -f "${ssh_dir}"/ssm-ssh-tmp -C ssm-ssh-session
-  ssh_pubkey="$(< "${ssh_dir}"/ssm-ssh-tmp.pub)"
+  ssh-keygen -t ed25519 -N '' -f "${ssh_dir}/${ssh_file_key_tmp}" -C ssm-ssh-session
+  ssh_pubkey="$(< "${ssh_dir}/${ssh_file_key_tmp}.pub")"
 }
 
-function cleanup { rm -f "${ssh_dir}"/ssm-ssh-tmp{,.pub}; }
+function cleanup { rm -f "${ssh_dir}/${ssh_file_key_tmp}"{,.pub}; }
 function die { echo "[${0##*/}] $*" >&2; exit 1; }
 
 main "$@"
