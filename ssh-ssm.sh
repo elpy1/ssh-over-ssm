@@ -9,8 +9,8 @@ main () {
   ssm_cmd=$(cat <<EOF
     "u=\$(getent passwd ${2}) && x=\$(echo \$u |cut -d: -f6) || exit 1
     install -d -m700 -o${2} \${x}/.ssh; grep '${ssh_pubkey}' \${x}/${ssh_authkeys} && exit 1
-    printf '${ssh_pubkey}'|tee -a \${x}/${ssh_authkeys} && sleep 15
-    sed -i s,'${ssh_pubkey}',, \${x}/${ssh_authkeys}"
+    printf '${ssh_pubkey}'|tee -a \${x}/${ssh_authkeys} || exit 1
+    (sleep 15 && sed -i s,'${ssh_pubkey}',, \${x}/${ssh_authkeys}) &"
 EOF
   )
 
