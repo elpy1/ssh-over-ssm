@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -o nounset -o pipefail -o errexit
 
-function main {
-  local ssh_pubkey ssm_cmd
-  local ssh_authkeys='.ssh/authorized_keys'
-  ssh_dir=~/.ssh
+main () {
+  local ssh_pubkey ssm_cmd ssh_authkeys='.ssh/authorized_keys'
+  ssh_dir=$HOME/.ssh
 
   checks "$@" && ssh_pubkey=$(ssh-add -L 2>/dev/null| head -1) || mktmpkey
   ssm_cmd=$(cat <<EOF
@@ -26,24 +25,28 @@ EOF
   aws ssm start-session --document-name AWS-StartSSHSession --target "$1" #--debug
 }
 
-function checks {
-  [[ $# -ne 2 ]] && die "Usage: ${0##*/} <instance-id> <ssh user>"
-  [[ ! $1 =~ ^i-([0-9a-f]{8,})$ ]] && die "ERROR: invalid instance-id"
-  if [[ $(basename -- $(ps -o comm= -p $PPID)) != "ssh" ]]; then
+checks () {
+  if [[ $# -ne 2 ]]; then
+    die "Usage: ${0##*/} <instance-id> <ssh user>"
+  elif [[ ! $1 =~ ^i-([0-9a-f]{8,})$ ]]; then
+    die "ERROR: invalid instance-id"
+  elif [[ $(basename -- $(ps -o comm= -p $PPID)) != "ssh" ]]; then
     ssh -o IdentityFile="~/.ssh/ssm-ssh-tmp" -o ProxyCommand="${0} ${1} ${2}" "${2}@${1}"
     exit 0
   fi
-  pr="$(grep -sl --exclude='*tool-env' "$1" "${ssh_dir}"/ssmtool-*)" &&
-  export AWS_PROFILE=${AWS_PROFILE:-${pr##*ssmtool-}}
+
+  if pr="$(grep -sl --exclude='*tool-env' "$1" ${ssh_dir}/ssmtool-*)"; then
+    export AWS_PROFILE=${AWS_PROFILE:-${pr##*ssmtool-}}
+  fi
 }
 
-function mktmpkey {
+mktmpkey () {
   trap cleanup EXIT
   ssh-keygen -t ed25519 -N '' -f "${ssh_dir}"/ssm-ssh-tmp -C ssm-ssh-session
   ssh_pubkey="$(< "${ssh_dir}"/ssm-ssh-tmp.pub)"
 }
 
-function cleanup { rm -f "${ssh_dir}"/ssm-ssh-tmp{,.pub}; }
-function die { echo "[${0##*/}] $*" >&2; exit 1; }
+cleanup () { rm -f "${ssh_dir}"/ssm-ssh-tmp{,.pub}; }
+die () { echo "[${0##*/}] $*" >&2; exit 1; }
 
 main "$@"
