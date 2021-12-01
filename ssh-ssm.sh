@@ -18,7 +18,12 @@ main () {
     "u=\$(getent passwd ${2}) && x=\$(echo \$u |cut -d: -f6) || exit 1
     [ ! -d \${x}/.ssh ] && install -d -m700 -o${2} \${x}/.ssh
     grep '${ssh_pubkey}' \${x}/${ssh_authkeys} && exit 0
-    printf '${ssh_pubkey}'|tee -a \${x}/${ssh_authkeys} || exit 1
+    printf '${ssh_pubkey}'|tee -a \${x}/${ssh_authkeys} || exit 1"
+EOF
+  )
+  
+  ssm_cleanup_cmd=$(cat <<EOF
+    "u=\$(getent passwd ${2}) && x=\$(echo \$u |cut -d: -f6) || exit 1
     (sleep 15 && sed -i s,'${ssh_pubkey}',, \${x}/${ssh_authkeys} &) &>/dev/null"
 EOF
   )
@@ -34,6 +39,15 @@ EOF
 
   # wait for successful send-command execution
   aws ssm wait command-executed --instance-id "$1" --command-id "${command_id}"
+
+  # remove public key after 15 seconds
+  aws ssm send-command \
+    --instance-ids "$1" \
+    --document-name "AWS-RunShellScript" \
+    --parameters commands="${ssm_cleanup_cmd}" \
+    --comment "temporary ssm ssh access" \
+    --output text \
+    --query Command.CommandId
 
   # start ssh session over ssm
   aws ssm start-session --document-name AWS-StartSSHSession --target "$1"
