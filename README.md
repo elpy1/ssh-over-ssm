@@ -15,10 +15,11 @@ At first I really wasn't too keen on SSM but now I'm an advocate! Some cool feat
 - Due to the way SSM works it's unlikely to find yourself blocked by network-level security, making it a great choice if you need to get out to the internet from inside a restrictive network :p
 
 ## Requirements
-- Instances must have access to ssm.`{region}`.amazonaws.com
-- IAM instance profile allowing SSM access must be attached to EC2 instance
-- SSM agent must be installed on EC2 instance
-- AWS cli requires you install `session-manager-plugin` locally
+- EC2 instances must have access to `ssm.{region}.amazonaws.com` on port `443`
+- [IAM instance profile allowing SSM access](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-instance-profile.html) must be attached to EC2 instance
+- [SSM agent](https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-manual-agent-install.html) must be installed on EC2 instance
+- [AWS CLIv2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) installed locally
+- [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed locally
 
 Existing instances with SSM agent already installed may require agent updates.
 
