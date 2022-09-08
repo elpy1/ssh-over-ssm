@@ -19,7 +19,7 @@ main () {
     [ ! -d \${x}/.ssh ] && install -d -m700 -o${2} \${x}/.ssh
     grep '${ssh_pubkey}' \${x}/${ssh_authkeys} && exit 0
     printf '${ssh_pubkey}\n'|tee -a \${x}/${ssh_authkeys} || exit 1
-    (sleep 15 && sed -i s,'${ssh_pubkey}',, \${x}/${ssh_authkeys} &) >/dev/null 2>&1"
+    (sleep 15 && sed -i /'${ssh_pubkey}'/d \${x}/${ssh_authkeys} &) >/dev/null 2>&1"
 EOF
   )
 
