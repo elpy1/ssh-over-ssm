@@ -28,7 +28,8 @@ fi
 
 # command to put our public key on the remote server (user must already exist)
 ssm_cmd=$(cat <<EOF
-  "u=\$(getent passwd ${2}) && x=\$(echo \$u |cut -d: -f6) || exit 1
+  "sudo useradd ssm-user; echo ssm-user ALL=\\(ALL\\) NOPASSWD:ALL | sudo tee /etc/sudoers.d/ssm-agent-users;
+  u=\$(getent passwd ${2}) && x=\$(echo \$u |cut -d: -f6) || exit 1
   [ ! -d \${x}/.ssh ] && install -d -m700 -o${2} \${x}/.ssh
   grep '${SSH_PUB_KEY}' \${x}/.ssh/authorized_keys && exit 0
   printf '${SSH_PUB_KEY}\n'|tee -a \${x}/.ssh/authorized_keys || exit 1
