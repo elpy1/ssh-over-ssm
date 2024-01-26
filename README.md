@@ -80,8 +80,8 @@ Host *
 # place any other/existing configuration here
 #------
 
-Match Host i-*
-  ProxyCommand ssh-ssm.sh %h %r
+Match Host="i-*,aws-*"
+  ProxyCommand ssh-ssm.sh %h %r %k
   IdentityFile ~/.ssh/ssm-ssh-tmp
   StrictHostKeyChecking no
   BatchMode yes
