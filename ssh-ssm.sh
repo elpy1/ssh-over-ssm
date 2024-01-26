@@ -1,8 +1,28 @@
 #!/usr/bin/env bash
-set -o nounset -o pipefail -o errexit
+set -o pipefail -o errexit
 
 SSH_DIR=$HOME/.ssh
 SSH_TMP_KEY=${SSH_DIR}/ssm-ssh-tmp
+
+set +o nounset
+# modify env_regex as necessary to whatever your aliases are in ~/.ssh/*
+# can also add optional suffixes, e.g. "aws-(prod|staging|dev(-dba)?)"
+env_regex="aws-(prod|staging|dev)"
+region_regex="([a-z]{2}-[a-z]+-[0-9]{1})"
+if [[ "$3" =~ $env_regex ]]; then
+  profile="${BASH_REMATCH[1]}"
+# modify the default value here as desired
+else
+  profile="${AWS_PROFILE:=prod}"
+fi
+if [[ "$3" =~ $region_regex ]]; then
+  region="${BASH_REMATCH[0]}"
+# modify the default value here as desired
+else
+  region="${AWS_REGION:=us-east-1}"
+fi
+set -- "${@:1:$(($#-1))}"
+set -o nounset
 
 die () { echo "[${0##*/}] $*" >&2; exit 1; }
 make_ssh_keys () { ssh-keygen -t rsa -N '' -f ${SSH_TMP_KEY} -C ssh-over-ssm; }
@@ -38,6 +58,8 @@ EOF
 
 # execute the command using aws ssm send-command
 command_id=$(aws ssm send-command \
+  --region "$region" \
+  --profile "$profile" \
   --instance-ids "$1" \
   --document-name "AWS-RunShellScript" \
   --parameters commands="${ssm_cmd}" \
@@ -46,7 +68,7 @@ command_id=$(aws ssm send-command \
   --query Command.CommandId)
 
 # wait for successful send-command execution
-aws ssm wait command-executed --instance-id "$1" --command-id "${command_id}"
+aws ssm wait command-executed --region "$region" --profile "$profile" --instance-id "$1" --command-id "${command_id}"
 
 # start ssh session over ssm
-aws ssm start-session --document-name AWS-StartSSHSession --target "$1"
+aws ssm start-session --region "$region" --profile "$profile" --document-name AWS-StartSSHSession --target "$1"
